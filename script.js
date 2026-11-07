@@ -1,1047 +1,871 @@
-
 (() => {
   "use strict";
 
   // ==========================================
-  // ZEROLAG - VIDEO TO GIF & FRAME EXTRACTOR
+  // ZEROLAG — VIDEO TO GIF & FRAME EXTRACTOR
   // ==========================================
 
   const $ = (id) => document.getElementById(id);
 
+  const GIF_WORKER = "./gif.worker.js";
+
+  const MAX_GIF_SECONDS = 30;
+  const MAX_GIF_FRAMES = 600;
+  const MAX_EXTRACT_FRAMES = 300;
+
+  let videoFile = null;
+  let extractedFrames = [];
+  let currentGifUrl = null;
+  let isGenerating = false;
+
   const videoInput = $("videoInput");
   const dropZone = $("dropZone");
-  const uploadContent = $("uploadContent");
-  const videoArea = $("videoArea");
-  const video = $("videoPlayer");
-
-  const browseButton = $("browseButton");
-  const removeVideo = $("removeVideo");
-
-  const generateGif = $("generateGif");
-  const captureCurrent = $("captureCurrent");
-  const extractBatch = $("extractBatch");
-  const downloadZip = $("downloadZip");
-  const clearFrames = $("clearFrames");
-
-  const startInput = $("startTime");
-  const endInput = $("endTime");
-
-  const seekBar = $("seekBar");
-  const currentTimeLabel = $("currentTime");
-  const totalTimeLabel = $("totalTime");
-
-  const gifProgressPanel = $("gifProgressPanel");
-  const gifProgressFill = $("gifProgressFill");
-  const gifProgressText = $("gifProgressText");
-  const gifProgressPercent = $("gifProgressPercent");
-
-  const gifResult = $("gifResult");
-  const gifPreview = $("gifPreview");
-  const downloadGif = $("downloadGif");
-  const gifMetadata = $("gifMetadata");
-
-  const frameProgressPanel = $("frameProgressPanel");
-  const frameProgressFill = $("frameProgressFill");
-  const frameProgressText = $("frameProgressText");
-  const frameProgressPercent = $("frameProgressPercent");
-
-  const frameGrid = $("frameGrid");
-  const emptyFrames = $("emptyFrames");
-  const frameCount = $("frameCount");
-
-  const toast = $("toast");
-
-  const GIF_WORKER =
-    "https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js";
-
-  let selectedFile = null;
-  let videoURL = null;
-  let gifURL = null;
-  let duration = 0;
-
-  let frames = [];
-  let busy = false;
-  let toastTimer = null;
-
-  $("year").textContent = new Date().getFullYear();
-
+  const videoPlayer = $("videoPlayer");
 
   // ==========================================
-  // UTILITIES
+  // HELPER FUNCTIONS
   // ==========================================
 
-  function notify(message) {
-    toast.textContent = message;
-    toast.classList.add("show");
-
-    clearTimeout(toastTimer);
-
-    toastTimer = setTimeout(() => {
-      toast.classList.remove("show");
-    }, 3000);
+  function getElement(...ids) {
+    for (const id of ids) {
+      const element = $(id);
+      if (element) return element;
+    }
+    return null;
   }
 
+  function getNumber(element, fallback) {
+    if (!element) return fallback;
+
+    const value = Number(element.value);
+    return Number.isFinite(value) ? value : fallback;
+  }
 
   function formatTime(seconds) {
     if (!Number.isFinite(seconds)) return "00:00";
 
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
 
-    return (
-      String(mins).padStart(2, "0") +
-      ":" +
-      String(secs).padStart(2, "0")
-    );
+    return `${String(minutes).padStart(2, "0")}:${String(
+      remainingSeconds
+    ).padStart(2, "0")}`;
   }
 
+  function showMessage(message, type = "info") {
+    const messageBox = getElement("statusMessage", "message", "notification");
 
-  function formatBytes(bytes) {
-    if (bytes < 1024 * 1024) {
-      return (bytes / 1024).toFixed(1) + " KB";
+    if (messageBox) {
+      messageBox.textContent = message;
+      messageBox.className = `status-message ${type}`;
+      messageBox.hidden = false;
+    } else {
+      console.log(`[ZeroLag] ${message}`);
+    }
+  }
+
+  function setProgress(percent, message = "") {
+    const progress = getElement("progressBar", "progressFill");
+    const progressText = getElement("progressText", "progressLabel");
+
+    if (progress) {
+      progress.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+
+      if (progress.tagName === "PROGRESS") {
+        progress.value = percent;
+      }
     }
 
-    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
-  }
-
-
-  function setProgress(type, percent, message) {
-    const gif = type === "gif";
-
-    const fill = gif ? gifProgressFill : frameProgressFill;
-    const label = gif ? gifProgressText : frameProgressText;
-    const percentage = gif
-      ? gifProgressPercent
-      : frameProgressPercent;
-
-    const panel = gif ? gifProgressPanel : frameProgressPanel;
-
-    panel.classList.remove("hidden");
-
-    const value = Math.max(0, Math.min(100, percent));
-
-    fill.style.width = value + "%";
-    label.textContent = message;
-    percentage.textContent = Math.round(value) + "%";
-  }
-
-
-  function hideProgress(type) {
-    const panel =
-      type === "gif" ? gifProgressPanel : frameProgressPanel;
-
-    panel.classList.add("hidden");
-  }
-
-
-  function setBusy(value) {
-    busy = value;
-
-    generateGif.disabled = !selectedFile || value;
-    captureCurrent.disabled = !selectedFile || value;
-    extractBatch.disabled = !selectedFile || value;
-
-    videoInput.disabled = value;
-    browseButton.disabled = value;
-    removeVideo.disabled = value;
-  }
-
-
-  function validateRange() {
-    if (!selectedFile) {
-      notify("Please upload a video first.");
-      return null;
+    if (progressText) {
+      progressText.textContent =
+        message || `${Math.round(percent)}%`;
     }
-
-    const start = Number(startInput.value);
-    const end = Number(endInput.value);
-
-    if (!Number.isFinite(start) || !Number.isFinite(end)) {
-      notify("Enter valid start and end times.");
-      return null;
-    }
-
-    if (
-      start < 0 ||
-      end > duration ||
-      end <= start
-    ) {
-      notify("Please check your selected time range.");
-      return null;
-    }
-
-    return { start, end };
   }
 
+  function showProgress(show) {
+    const container = getElement("progressContainer", "progressSection");
 
-  function getCanvasDimensions(maxWidth) {
-    const originalWidth = video.videoWidth;
-    const originalHeight = video.videoHeight;
-
-    if (!originalWidth || !originalHeight) {
-      throw new Error("Video dimensions are unavailable.");
+    if (container) {
+      container.hidden = !show;
+      container.style.display = show ? "" : "none";
     }
+  }
 
-    const ratio = Math.min(1, maxWidth / originalWidth);
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
 
+    link.href = url;
+    link.download = filename;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  function getVideoDimensions() {
     return {
-      width: Math.max(1, Math.round(originalWidth * ratio)),
-      height: Math.max(1, Math.round(originalHeight * ratio))
+      width: videoPlayer.videoWidth,
+      height: videoPlayer.videoHeight
     };
   }
 
-
-  function makeCanvas(width, height) {
+  function createCanvas(width, height) {
     const canvas = document.createElement("canvas");
 
     canvas.width = width;
     canvas.height = height;
 
-    const context = canvas.getContext("2d", {
-      alpha: false
-    });
-
-    if (!context) {
-      throw new Error("Canvas is not supported by this browser.");
-    }
-
-    return { canvas, context };
+    return canvas;
   }
 
+  function drawVideoFrame(canvas, width, height) {
+    const context = canvas.getContext("2d", {
+      willReadFrequently: false
+    });
+
+    context.fillStyle = "#000000";
+    context.fillRect(0, 0, width, height);
+
+    context.drawImage(videoPlayer, 0, 0, width, height);
+
+    return context;
+  }
 
   // ==========================================
   // VIDEO UPLOAD
   // ==========================================
 
-  browseButton.addEventListener("click", () => {
-    if (!busy) videoInput.click();
-  });
-
-
-  videoInput.addEventListener("change", (event) => {
-    const file = event.target.files[0];
-
-    if (file) loadVideo(file);
-
-    // Allows choosing the same file again.
-    videoInput.value = "";
-  });
-
-
   function loadVideo(file) {
-    if (busy) return;
+    if (!file) return;
 
     if (!file.type.startsWith("video/")) {
-      notify("Please select a valid video file.");
+      showMessage("Please select a valid video file.", "error");
       return;
     }
 
-    cleanupVideo();
+    if (videoFile) {
+      URL.revokeObjectURL(videoFile);
+    }
 
-    selectedFile = file;
+    videoFile = URL.createObjectURL(file);
 
-    videoURL = URL.createObjectURL(file);
+    videoPlayer.src = videoFile;
+    videoPlayer.load();
 
-    video.src = videoURL;
-    video.load();
+    extractedFrames = [];
 
-    uploadContent.classList.add("hidden");
-    videoArea.classList.remove("hidden");
+    videoPlayer.onloadedmetadata = () => {
+      const duration = videoPlayer.duration;
 
-    $("videoName").textContent = file.name;
-    $("videoDetails").textContent =
-      formatBytes(file.size) + " · Loading...";
+      const startInput = $("startTime");
+      const endInput = $("endTime");
 
-    generateGif.disabled = true;
-    captureCurrent.disabled = true;
-    extractBatch.disabled = true;
+      if (startInput) {
+        startInput.value = 0;
+        startInput.max = duration;
+      }
 
-    gifResult.classList.add("hidden");
+      if (endInput) {
+        endInput.value = duration;
+        endInput.max = duration;
+      }
 
-    notify("Video selected successfully.");
+      const durationLabel = getElement("videoDuration", "duration");
+
+      if (durationLabel) {
+        durationLabel.textContent = formatTime(duration);
+      }
+
+      const videoInfo = getElement("videoInfo", "videoDetails");
+
+      if (videoInfo) {
+        videoInfo.hidden = false;
+      }
+
+      showMessage("Video loaded successfully!", "success");
+    };
+
+    videoPlayer.onerror = () => {
+      showMessage("Unable to load this video.", "error");
+    };
   }
 
-
-  video.addEventListener("loadedmetadata", () => {
-    if (!selectedFile) return;
-
-    duration = video.duration;
-
-    if (!Number.isFinite(duration)) {
-      notify("This video has an unsupported duration.");
-      cleanupVideo();
-      return;
-    }
-
-    startInput.value = "0";
-    endInput.value = duration.toFixed(2);
-
-    startInput.max = duration;
-    endInput.max = duration;
-
-    seekBar.max = duration;
-    seekBar.value = 0;
-
-    totalTimeLabel.textContent = formatTime(duration);
-
-    $("videoDetails").textContent =
-      video.videoWidth +
-      " × " +
-      video.videoHeight +
-      " · " +
-      formatTime(duration);
-
-    generateGif.disabled = false;
-    captureCurrent.disabled = false;
-    extractBatch.disabled = false;
-
-    notify("Your video is ready!");
-  });
-
-
-  video.addEventListener("error", () => {
-    if (!selectedFile) return;
-
-    notify("Unable to decode this video. Try another format.");
-  });
-
-
-  // Drag and drop
-
-  dropZone.addEventListener("dragover", (event) => {
-    event.preventDefault();
-    dropZone.classList.add("drag-over");
-  });
-
-
-  dropZone.addEventListener("dragleave", () => {
-    dropZone.classList.remove("drag-over");
-  });
-
-
-  dropZone.addEventListener("drop", (event) => {
-    event.preventDefault();
-
-    dropZone.classList.remove("drag-over");
-
-    const file = event.dataTransfer.files[0];
-
-    if (file) loadVideo(file);
-  });
-
-
-  // Remove video
-
-  removeVideo.addEventListener("click", () => {
-    if (busy) return;
-
-    cleanupVideo();
-
-    notify("Video removed.");
-  });
-
-
-  function cleanupVideo() {
-    video.pause();
-    video.removeAttribute("src");
-    video.load();
-
-    if (videoURL) {
-      URL.revokeObjectURL(videoURL);
-      videoURL = null;
-    }
-
-    if (gifURL) {
-      URL.revokeObjectURL(gifURL);
-      gifURL = null;
-    }
-
-    selectedFile = null;
-    duration = 0;
-
-    uploadContent.classList.remove("hidden");
-    videoArea.classList.add("hidden");
-
-    gifResult.classList.add("hidden");
-    hideProgress("gif");
-    hideProgress("frames");
-
-    startInput.value = "0";
-    endInput.value = "0";
-
-    seekBar.value = 0;
-
-    generateGif.disabled = true;
-    captureCurrent.disabled = true;
-    extractBatch.disabled = true;
-
-    clearAllFrames();
+  if (videoInput) {
+    videoInput.addEventListener("change", (event) => {
+      loadVideo(event.target.files[0]);
+    });
   }
 
+  if (dropZone) {
+    dropZone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      dropZone.classList.add("dragging");
+    });
 
-  // ==========================================
-  // VIDEO TIMELINE
-  // ==========================================
+    dropZone.addEventListener("dragleave", () => {
+      dropZone.classList.remove("dragging");
+    });
 
-  video.addEventListener("timeupdate", () => {
-    if (!duration) return;
+    dropZone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      dropZone.classList.remove("dragging");
 
-    seekBar.value = video.currentTime;
+      const file = event.dataTransfer.files[0];
 
-    currentTimeLabel.textContent =
-      formatTime(video.currentTime);
-  });
+      if (file && videoInput) {
+        loadVideo(file);
+        videoInput.value = "";
+      }
+    });
 
+    dropZone.addEventListener("click", (event) => {
+      if (
+        event.target.closest("button") ||
+        event.target.closest("input")
+      ) {
+        return;
+      }
 
-  seekBar.addEventListener("input", () => {
-    if (!selectedFile || busy) return;
-
-    video.currentTime = Number(seekBar.value);
-  });
-
+      videoInput?.click();
+    });
+  }
 
   // ==========================================
   // VIDEO SEEKING
   // ==========================================
 
-  async function seekTo(time) {
-    if (!Number.isFinite(time)) {
-      throw new Error("Invalid video timestamp.");
-    }
-
-    if (Math.abs(video.currentTime - time) < 0.001) {
-      return;
-    }
-
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        cleanup();
-        reject(new Error("Video seeking timed out."));
-      }, 15000);
-
-      function cleanup() {
-        clearTimeout(timeout);
-
-        video.removeEventListener("seeked", onSeeked);
-        video.removeEventListener("error", onError);
+  function seekVideo(time) {
+    return new Promise((resolve, reject) => {
+      if (!videoPlayer || !Number.isFinite(time)) {
+        reject(new Error("Invalid video or timestamp."));
+        return;
       }
 
+      const target = Math.max(
+        0,
+        Math.min(time, videoPlayer.duration - 0.01)
+      );
+
+      if (Math.abs(videoPlayer.currentTime - target) < 0.015) {
+        resolve();
+        return;
+      }
+
+      const timeout = setTimeout(() => {
+        videoPlayer.removeEventListener("seeked", onSeeked);
+        reject(new Error("Video seeking timed out."));
+      }, 10000);
+
       function onSeeked() {
-        cleanup();
+        clearTimeout(timeout);
+        videoPlayer.removeEventListener("seeked", onSeeked);
         resolve();
       }
 
-      function onError() {
-        cleanup();
-        reject(new Error("Unable to seek in this video."));
-      }
-
-      video.addEventListener("seeked", onSeeked, {
+      videoPlayer.addEventListener("seeked", onSeeked, {
         once: true
       });
 
-      video.addEventListener("error", onError, {
-        once: true
-      });
-
-      try {
-        video.currentTime = time;
-      } catch (error) {
-        cleanup();
-        reject(error);
-      }
+      videoPlayer.currentTime = target;
     });
   }
-
-
-  function canvasToBlob(canvas, mimeType) {
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) {
-          resolve(blob);
-        } else {
-          reject(new Error("Image export failed."));
-        }
-      }, mimeType, 0.95);
-    });
-  }
-
-
-  function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-
-    const anchor = document.createElement("a");
-
-    anchor.href = url;
-    anchor.download = filename;
-
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 30000);
-  }
-
 
   // ==========================================
   // GIF GENERATOR
   // ==========================================
 
-  generateGif.addEventListener("click", createGif);
-
-
   async function createGif() {
-    if (busy) return;
+    if (isGenerating) return;
 
-    const range = validateRange();
-
-    if (!range) return;
-
-    if (typeof window.GIF !== "function") {
-      notify("GIF encoder failed to load. Refresh the page.");
+    if (!videoFile || !videoPlayer.duration) {
+      showMessage("Upload a video before creating a GIF.", "error");
       return;
     }
 
-    if (range.end - range.start > 30) {
-      notify("For smoother performance, keep GIF clips under 30 seconds.");
+    if (typeof GIF === "undefined") {
+      showMessage(
+        "GIF library did not load. Refresh the page and try again.",
+        "error"
+      );
       return;
     }
 
-    const fps = Number($("gifFps").value);
-    const quality = Number($("gifQuality").value);
+    const start = getNumber($("startTime"), 0);
+    const end = getNumber($("endTime"), videoPlayer.duration);
 
-    const selectedWidth = $("gifWidth").value;
-
-    const maxWidth =
-      selectedWidth === "original"
-        ? Math.min(video.videoWidth, 1920)
-        : Number(selectedWidth);
-
-    const frameDelay = 1000 / fps;
-
-    const frameTotal = Math.ceil(
-      (range.end - range.start) * fps
+    const requestedWidth = Math.round(
+      getNumber($("gifWidth"), 480)
     );
 
-    if (frameTotal < 1 || frameTotal > 600) {
-      notify("This GIF requires too many frames.");
+    const fps = Math.max(
+      1,
+      Math.min(30, getNumber($("gifFps"), 12))
+    );
+
+    const quality = Math.max(
+      1,
+      Math.min(30, getNumber($("gifQuality"), 10))
+    );
+
+    const loopValue = getNumber($("gifLoop"), 0);
+
+    if (start < 0 || end <= start || end > videoPlayer.duration + 0.1) {
+      showMessage("Please select a valid start and end time.", "error");
       return;
     }
 
-    const wasPlaying = !video.paused;
-    const previousTime = video.currentTime;
+    const duration = end - start;
 
-    let encoder = null;
-
-    setBusy(true);
-
-    gifResult.classList.add("hidden");
-
-    if (gifURL) {
-      URL.revokeObjectURL(gifURL);
-      gifURL = null;
+    if (duration > MAX_GIF_SECONDS) {
+      showMessage(
+        `GIF duration must be ${MAX_GIF_SECONDS} seconds or less.`,
+        "error"
+      );
+      return;
     }
 
-    setProgress("gif", 0, "Preparing GIF encoder...");
+    const frameCount = Math.ceil(duration * fps);
+
+    if (frameCount > MAX_GIF_FRAMES) {
+      showMessage(
+        `Too many frames. Reduce the duration or FPS. Maximum: ${MAX_GIF_FRAMES}.`,
+        "error"
+      );
+      return;
+    }
+
+    const originalDimensions = getVideoDimensions();
+
+    if (!originalDimensions.width || !originalDimensions.height) {
+      showMessage("Video is not ready yet.", "error");
+      return;
+    }
+
+    const width = Math.min(
+      requestedWidth,
+      originalDimensions.width
+    );
+
+    const height = Math.max(
+      1,
+      Math.round(
+        width *
+        originalDimensions.height /
+        originalDimensions.width
+      )
+    );
+
+    const canvas = createCanvas(width, height);
+
+    const delay = Math.max(20, Math.round(1000 / fps));
+
+    // gif.js uses 0 for infinite looping and -1 for no repeat.
+    const repeat = loopValue === 1 ? -1 : loopValue;
+
+    let encoder;
+
+    isGenerating = true;
+
+    const generateButton = $("generateGif");
+
+    if (generateButton) {
+      generateButton.disabled = true;
+      generateButton.textContent = "Creating GIF...";
+    }
+
+    showProgress(true);
+    setProgress(0, "Preparing video...");
 
     try {
-      const dimensions = getCanvasDimensions(maxWidth);
-
-      const { canvas, context } = makeCanvas(
-        dimensions.width,
-        dimensions.height
-      );
+      videoPlayer.pause();
 
       encoder = new GIF({
         workers: 2,
         quality: quality,
-        width: dimensions.width,
-        height: dimensions.height,
-        workerScript: GIF_WORKER,
-        repeat: Number($("gifLoop").value) === 1
-          ? -1
-          : Number($("gifLoop").value)
+        width: width,
+        height: height,
+        repeat: repeat,
+        background: "#000000",
+        workerScript: GIF_WORKER
       });
 
-      video.pause();
-
-      // Extract frames at the chosen FPS.
-      for (let i = 0; i < frameTotal; i++) {
-
-        const timestamp = Math.min(
-          range.start + i / fps,
-          range.end
+      // Collect frames.
+      for (let i = 0; i < frameCount; i++) {
+        const time = Math.min(
+          start + i / fps,
+          end - 0.001
         );
 
-        await seekTo(timestamp);
+        await seekVideo(time);
 
-        context.drawImage(
-          video,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
+        drawVideoFrame(canvas, width, height);
 
         encoder.addFrame(canvas, {
           copy: true,
-          delay: frameDelay
+          delay: delay
         });
 
-        const progress = ((i + 1) / frameTotal) * 85;
+        const progress = ((i + 1) / frameCount) * 75;
 
         setProgress(
-          "gif",
           progress,
-          "Collecting frames: " + (i + 1) + "/" + frameTotal
+          `Preparing frames: ${i + 1}/${frameCount}`
         );
-
-        // Give the browser opportunities to update.
-        if (i % 3 === 0) {
-          await new Promise(resolve =>
-            requestAnimationFrame(resolve)
-          );
-        }
       }
 
-      setProgress("gif", 88, "Encoding your GIF...");
+      setProgress(78, "Rendering GIF...");
 
-      const result = await new Promise((resolve, reject) => {
+      encoder.on("progress", (progress) => {
+        const percentage = 78 + progress * 22;
 
-        encoder.on("progress", (progress) => {
-          setProgress(
-            "gif",
-            88 + progress * 11,
-            "Encoding GIF..."
-          );
-        });
+        setProgress(
+          percentage,
+          `Rendering GIF: ${Math.round(progress * 100)}%`
+        );
+      });
 
-        encoder.on("finished", (blob) => {
-          resolve(blob);
-        });
+      const gifBlob = await new Promise((resolve, reject) => {
+        encoder.on("finished", resolve);
 
         encoder.on("abort", () => {
-          reject(new Error("GIF encoding was aborted."));
+          reject(new Error("GIF rendering was cancelled."));
         });
 
-        try {
-          encoder.render();
-        } catch (error) {
-          reject(error);
-        }
+        encoder.render();
       });
 
-      if (!result || result.size === 0) {
-        throw new Error("GIF generation produced an empty file.");
+      if (!gifBlob || gifBlob.size === 0) {
+        throw new Error("The generated GIF is empty.");
       }
 
-      gifURL = URL.createObjectURL(result);
+      if (currentGifUrl) {
+        URL.revokeObjectURL(currentGifUrl);
+      }
 
-      gifPreview.src = gifURL;
+      currentGifUrl = URL.createObjectURL(gifBlob);
 
-      downloadGif.href = gifURL;
+      const preview = getElement(
+        "gifPreview",
+        "generatedGif",
+        "resultGif"
+      );
 
-      downloadGif.download =
-        "zerolag-" +
-        Date.now() +
-        ".gif";
+      if (preview) {
+        if (preview.tagName === "IMG") {
+          preview.src = currentGifUrl;
+        } else {
+          preview.innerHTML = "";
 
-      gifMetadata.textContent =
-        "Resolution: " +
-        dimensions.width +
-        " × " +
-        dimensions.height +
-        " · " +
-        fps +
-        " FPS · " +
-        frameTotal +
-        " frames · " +
-        formatBytes(result.size);
+          const image = document.createElement("img");
+          image.src = currentGifUrl;
+          image.alt = "Generated GIF preview";
+          image.style.maxWidth = "100%";
 
-      gifResult.classList.remove("hidden");
+          preview.appendChild(image);
+        }
+      }
 
-      setProgress("gif", 100, "GIF created successfully!");
+      const resultSection = getElement(
+        "gifResult",
+        "resultSection",
+        "gifOutput"
+      );
 
-      notify("Your GIF is ready!");
+      if (resultSection) {
+        resultSection.hidden = false;
+        resultSection.style.display = "";
+      }
 
-      gifResult.scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-      });
+      const downloadButton = getElement(
+        "downloadGif",
+        "downloadGIF"
+      );
+
+      if (downloadButton) {
+        downloadButton.disabled = false;
+
+        downloadButton.onclick = () => {
+          downloadBlob(gifBlob, "zerolag-animation.gif");
+        };
+      }
+
+      setProgress(100, "GIF created successfully!");
+
+      showMessage(
+        `GIF created! Size: ${(gifBlob.size / 1024 / 1024).toFixed(2)} MB`,
+        "success"
+      );
 
     } catch (error) {
+      console.error("GIF creation error:", error);
 
-      console.error("GIF Error:", error);
-
-      notify(error.message || "GIF generation failed.");
+      showMessage(
+        `GIF creation failed: ${error.message}`,
+        "error"
+      );
 
     } finally {
+      isGenerating = false;
 
-      if (encoder && typeof encoder.abort === "function") {
-        // Do not abort after successful rendering.
-        // The encoder has completed by this point.
+      if (generateButton) {
+        generateButton.disabled = false;
+        generateButton.textContent = "Create GIF";
       }
 
-      try {
-        await seekTo(previousTime);
-      } catch (error) {
-        console.warn("Could not restore video position.", error);
+      if (encoder) {
+        encoder.abort();
       }
 
-      if (wasPlaying) {
-        video.play().catch(() => {});
-      }
-
-      setBusy(false);
-
-      // Keep the completed result visible.
+      showProgress(false);
     }
   }
 
+  $("generateGif")?.addEventListener("click", createGif);
 
   // ==========================================
-  // FRAME EXTRACTION
+  // CURRENT FRAME EXTRACTION
   // ==========================================
 
-  captureCurrent.addEventListener("click", async () => {
+  function getImageFormat() {
+    const formatInput = getElement(
+      "imageFormat",
+      "frameFormat",
+      "extractFormat"
+    );
 
-    if (busy || !selectedFile) return;
+    return formatInput?.value === "jpg" ||
+      formatInput?.value === "jpeg"
+      ? "image/jpeg"
+      : "image/png";
+  }
 
-    setBusy(true);
+  function getImageExtension() {
+    return getImageFormat() === "image/jpeg" ? "jpg" : "png";
+  }
 
-    try {
-      const timestamp = video.currentTime;
-
-      const mimeType = $("frameFormat").value;
-
-      const { canvas, context } = makeCanvas(
-        video.videoWidth,
-        video.videoHeight
-      );
-
-      context.drawImage(
-        video,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
-      const blob = await canvasToBlob(canvas, mimeType);
-
-      addFrame(blob, timestamp, mimeType);
-
-      notify("Frame captured successfully.");
-
-    } catch (error) {
-
-      console.error(error);
-
-      notify(error.message || "Unable to capture frame.");
-
-    } finally {
-      setBusy(false);
+  async function captureCurrentFrame() {
+    if (!videoFile) {
+      showMessage("Upload a video first.", "error");
+      return;
     }
 
-  });
+    try {
+      const dimensions = getVideoDimensions();
 
+      const canvas = createCanvas(
+        dimensions.width,
+        dimensions.height
+      );
+
+      drawVideoFrame(canvas, dimensions.width, dimensions.height);
+
+      const format = getImageFormat();
+
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          showMessage("Could not capture this frame.", "error");
+          return;
+        }
+
+        downloadBlob(
+          blob,
+          `zerolag-frame-${Date.now()}.${getImageExtension()}`
+        );
+
+        showMessage("Frame downloaded successfully!", "success");
+      }, format, 0.95);
+
+    } catch (error) {
+      console.error(error);
+      showMessage("Frame extraction failed.", "error");
+    }
+  }
+
+  const currentFrameButton = getElement(
+    "captureFrame",
+    "extractCurrentFrame",
+    "downloadFrame",
+    "currentFrame"
+  );
+
+  currentFrameButton?.addEventListener(
+    "click",
+    captureCurrentFrame
+  );
 
   // ==========================================
   // BATCH FRAME EXTRACTION
   // ==========================================
 
-  extractBatch.addEventListener("click", extractAllFrames);
-
-
   async function extractAllFrames() {
-
-    if (busy) return;
-
-    const range = validateRange();
-
-    if (!range) return;
-
-    const interval = Number($("frameInterval").value);
-
-    if (
-      !Number.isFinite(interval) ||
-      interval < 0.1 ||
-      interval > 60
-    ) {
-      notify("Choose an interval between 0.1 and 60 seconds.");
+    if (!videoFile) {
+      showMessage("Upload a video first.", "error");
       return;
     }
 
-    const total = Math.floor(
-      (range.end - range.start) / interval
-    ) + 1;
+    const start = getNumber($("startTime"), 0);
+    const end = getNumber($("endTime"), videoPlayer.duration);
 
-    if (total > 300) {
-      notify("Too many frames. Increase the extraction interval.");
+    const interval = getNumber(
+      getElement("frameInterval", "extractInterval", "interval"),
+      1
+    );
+
+    if (interval <= 0 || end <= start) {
+      showMessage("Please enter a valid extraction interval.", "error");
       return;
     }
 
-    const wasPlaying = !video.paused;
-    const previousTime = video.currentTime;
+    const totalFrames = Math.floor((end - start) / interval) + 1;
 
-    const mimeType = $("frameFormat").value;
+    if (totalFrames > MAX_EXTRACT_FRAMES) {
+      showMessage(
+        `This extraction would create ${totalFrames} frames. Maximum: ${MAX_EXTRACT_FRAMES}. Increase the interval.`,
+        "error"
+      );
+      return;
+    }
 
-    setBusy(true);
+    const dimensions = getVideoDimensions();
+
+    if (!dimensions.width || !dimensions.height) {
+      showMessage("Video is not ready yet.", "error");
+      return;
+    }
+
+    extractedFrames = [];
+
+    const button = getElement(
+      "extractFrames",
+      "extractAllFrames",
+      "batchExtract"
+    );
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Extracting...";
+    }
+
+    showProgress(true);
 
     try {
+      videoPlayer.pause();
 
-      const { canvas, context } = makeCanvas(
-        video.videoWidth,
-        video.videoHeight
+      const canvas = createCanvas(
+        dimensions.width,
+        dimensions.height
       );
 
-      video.pause();
+      const format = getImageFormat();
+      const extension = getImageExtension();
 
-      for (let i = 0; i < total; i++) {
-
-        const timestamp = Math.min(
-          range.start + i * interval,
-          range.end
+      for (let i = 0; i < totalFrames; i++) {
+        const time = Math.min(
+          start + i * interval,
+          end - 0.001
         );
 
-        await seekTo(timestamp);
+        await seekVideo(time);
 
-        context.drawImage(
-          video,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-
-        const blob = await canvasToBlob(
+        drawVideoFrame(
           canvas,
-          mimeType
+          dimensions.width,
+          dimensions.height
         );
 
-        addFrame(blob, timestamp, mimeType);
+        const blob = await new Promise((resolve) => {
+          canvas.toBlob(resolve, format, 0.95);
+        });
 
-        const progress = ((i + 1) / total) * 100;
+        if (!blob) {
+          throw new Error(`Could not extract frame ${i + 1}.`);
+        }
+
+        extractedFrames.push({
+          blob: blob,
+          name: `frame-${String(i + 1).padStart(4, "0")}.${extension}`,
+          time: time
+        });
+
+        const progress = ((i + 1) / totalFrames) * 100;
 
         setProgress(
-          "frames",
           progress,
-          "Extracting frame " + (i + 1) + " of " + total
+          `Extracting frames: ${i + 1}/${totalFrames}`
         );
-
-        if (i % 2 === 0) {
-          await new Promise(resolve =>
-            requestAnimationFrame(resolve)
-          );
-        }
       }
 
-      notify(total + " frames extracted successfully.");
+      showMessage(
+        `${extractedFrames.length} frames extracted successfully!`,
+        "success"
+      );
+
+      const result = getElement(
+        "frameResults",
+        "extractionResults",
+        "framesResult"
+      );
+
+      if (result) {
+        result.innerHTML = "";
+
+        extractedFrames.forEach((frame) => {
+          const imageUrl = URL.createObjectURL(frame.blob);
+
+          const item = document.createElement("div");
+          item.className = "frame-item";
+
+          const image = document.createElement("img");
+          image.src = imageUrl;
+          image.alt = frame.name;
+          image.loading = "lazy";
+
+          const caption = document.createElement("p");
+          caption.textContent =
+            `${frame.name} · ${formatTime(frame.time)}`;
+
+          item.append(image, caption);
+          result.appendChild(item);
+        });
+
+        result.hidden = false;
+      }
+
+      const zipButton = getElement(
+        "downloadZip",
+        "downloadFramesZip",
+        "downloadAllFrames"
+      );
+
+      if (zipButton) {
+        zipButton.disabled = false;
+      }
 
     } catch (error) {
-
-      console.error(error);
-
-      notify(error.message || "Frame extraction failed.");
+      console.error("Frame extraction error:", error);
+      showMessage(error.message, "error");
 
     } finally {
-
-      try {
-        await seekTo(previousTime);
-      } catch (error) {
-        console.warn(error);
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Extract Frames";
       }
 
-      if (wasPlaying) {
-        video.play().catch(() => {});
-      }
-
-      setBusy(false);
+      showProgress(false);
     }
   }
 
+  const batchButton = getElement(
+    "extractFrames",
+    "extractAllFrames",
+    "batchExtract"
+  );
+
+  batchButton?.addEventListener("click", extractAllFrames);
 
   // ==========================================
-  // FRAME GALLERY
+  // DOWNLOAD ALL FRAMES AS ZIP
   // ==========================================
 
-  function addFrame(blob, timestamp, mimeType) {
-
-    const id =
-      Date.now() +
-      "-" +
-      Math.random().toString(36).slice(2);
-
-    const url = URL.createObjectURL(blob);
-
-    const extension =
-      mimeType === "image/png" ? "png" : "jpg";
-
-    const filename =
-      "zerolag-frame-" +
-      String(frames.length + 1).padStart(3, "0") +
-      "." +
-      extension;
-
-    const frame = {
-      id,
-      blob,
-      url,
-      timestamp,
-      filename
-    };
-
-    frames.push(frame);
-
-    renderFrame(frame);
-
-    updateFrameCount();
-  }
-
-
-  function renderFrame(frame) {
-
-    emptyFrames.classList.add("hidden");
-
-    const card = document.createElement("div");
-
-    card.className = "frame-card";
-    card.dataset.id = frame.id;
-
-    const image = document.createElement("img");
-
-    image.src = frame.url;
-    image.alt = "Video frame at " + formatTime(frame.timestamp);
-
-    const info = document.createElement("div");
-
-    info.className = "frame-card-info";
-
-    const label = document.createElement("p");
-
-    label.textContent =
-      formatTime(frame.timestamp) +
-      " · " +
-      frame.filename;
-
-    const downloadButton = document.createElement("button");
-
-    downloadButton.textContent = "↓ Download";
-
-    downloadButton.addEventListener("click", () => {
-      downloadBlob(frame.blob, frame.filename);
-    });
-
-    info.append(label, downloadButton);
-
-    card.append(image, info);
-
-    frameGrid.appendChild(card);
-  }
-
-
-  function updateFrameCount() {
-
-    frameCount.textContent =
-      frames.length +
-      (frames.length === 1
-        ? " image captured"
-        : " images captured");
-
-    downloadZip.disabled =
-      frames.length === 0 || busy;
-  }
-
-
-  function clearAllFrames() {
-
-    frames.forEach((frame) => {
-      URL.revokeObjectURL(frame.url);
-    });
-
-    frames = [];
-
-    frameGrid.innerHTML = "";
-
-    frameGrid.appendChild(emptyFrames);
-
-    emptyFrames.classList.remove("hidden");
-
-    updateFrameCount();
-  }
-
-
-  clearFrames.addEventListener("click", () => {
-
-    if (busy) return;
-
-    clearAllFrames();
-
-    notify("All extracted frames cleared.");
-  });
-
-
-  // ==========================================
-  // ZIP DOWNLOAD
-  // ==========================================
-
-  downloadZip.addEventListener("click", async () => {
-
-    if (busy || frames.length === 0) return;
-
-    if (typeof window.JSZip !== "function") {
-      notify("ZIP library failed to load.");
+  async function downloadFramesZip() {
+    if (!extractedFrames.length) {
+      showMessage("Extract frames before downloading the ZIP.", "error");
       return;
     }
 
-    downloadZip.disabled = true;
+    if (typeof JSZip === "undefined") {
+      showMessage(
+        "ZIP library did not load. Refresh the page and try again.",
+        "error"
+      );
+      return;
+    }
+
+    const button = getElement(
+      "downloadZip",
+      "downloadFramesZip",
+      "downloadAllFrames"
+    );
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Preparing ZIP...";
+    }
 
     try {
-
       const zip = new JSZip();
 
-      const folder = zip.folder("ZeroLag-Frames");
-
-      frames.forEach((frame) => {
-        folder.file(frame.filename, frame.blob);
+      extractedFrames.forEach((frame) => {
+        zip.file(frame.name, frame.blob);
       });
 
-      const blob = await zip.generateAsync({
-        type: "blob",
-        compression: "DEFLATE",
-        compressionOptions: {
-          level: 3
+      const zipBlob = await zip.generateAsync(
+        { type: "blob" },
+        (metadata) => {
+          setProgress(
+            metadata.percent,
+            `Creating ZIP: ${Math.round(metadata.percent)}%`
+          );
         }
-      });
+      );
 
-      downloadBlob(blob, "zerolag-frames.zip");
+      downloadBlob(zipBlob, "zerolag-frames.zip");
 
-      notify("Your ZIP file is ready!");
+      showMessage("ZIP downloaded successfully!", "success");
 
     } catch (error) {
-
       console.error(error);
-
-      notify("Unable to create ZIP file.");
+      showMessage("Could not create the ZIP file.", "error");
 
     } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Download ZIP";
+      }
 
-      downloadZip.disabled = frames.length === 0;
+      showProgress(false);
+    }
+  }
+
+  const zipButton = getElement(
+    "downloadZip",
+    "downloadFramesZip",
+    "downloadAllFrames"
+  );
+
+  zipButton?.addEventListener("click", downloadFramesZip);
+
+  // ==========================================
+  // VIDEO TIME DISPLAY
+  // ==========================================
+
+  videoPlayer?.addEventListener("timeupdate", () => {
+    const currentTime = getElement(
+      "currentTime",
+      "videoCurrentTime"
+    );
+
+    if (currentTime) {
+      currentTime.textContent = formatTime(videoPlayer.currentTime);
     }
   });
 
-
   // ==========================================
-  // PAGE INITIALIZATION
+  // CLEANUP
   // ==========================================
 
-  updateFrameCount();
+  window.addEventListener("beforeunload", () => {
+    if (videoFile) {
+      URL.revokeObjectURL(videoFile);
+    }
 
-  console.log(
-    "%cZeroLag initialized successfully.",
-    "color:#9870ff;font-weight:bold;font-size:15px;"
-  );
+    if (currentGifUrl) {
+      URL.revokeObjectURL(currentGifUrl);
+    }
+  });
 
+  console.log("ZeroLag initialized successfully.");
 })();
