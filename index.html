@@ -5,10 +5,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <meta name="theme-color" content="#090b16">
-  <meta name="description" content="ZeroLag — Free online video to GIF converter and frame extractor. Fast, private and browser-based.">
+  <meta name="theme-color" content="#f7f7f4">
+  <meta name="description" content="ZeroLag is a free browser-based video to GIF converter and frame extraction studio.">
 
-  <title>ZeroLag — Video to GIF & Frame Studio</title>
+  <title>ZeroLag — Video to GIF Studio</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,68 +24,109 @@
 
 <body>
 
-  <div class="ambient ambient-one"></div>
-  <div class="ambient ambient-two"></div>
-  <div class="ambient ambient-three"></div>
-
   <header class="topbar">
-    <a class="brand" href="#">
+    <a href="#" class="brand">
       <span class="brand-icon">Z</span>
       <span>Zero<span class="brand-accent">Lag</span></span>
     </a>
 
     <nav class="top-nav">
       <a href="#converter">Converter</a>
-      <a href="#frames">Frame Extractor</a>
+      <a href="#frames">Frame Studio</a>
       <a href="#about">About</a>
     </nav>
 
     <div class="privacy-label">
       <span class="privacy-dot"></span>
-      100% Browser Based
+      Browser-based
     </div>
   </header>
 
   <main class="main-container">
 
+    <!-- HERO -->
+
     <section class="hero">
       <div class="hero-badge">
-        <span class="sparkle">✦</span>
-        FREE VIDEO TOOLKIT
+        <span>✳</span>
+        YOUR CREATIVE WORKSPACE
       </div>
 
       <h1>
-        Turn videos into
-        <span class="gradient-text">something amazing.</span>
+        Videos into GIFs.
+        <span class="gradient-text">Frames into moments.</span>
       </h1>
 
       <p>
-        Convert videos into beautiful GIFs, capture perfect frames
-        and extract images — all inside your browser.
+        Convert videos into smooth GIFs, capture individual frames,
+        and export everything in one simple workspace.
       </p>
 
       <div class="hero-features">
         <span><i></i> No account required</span>
-        <span><i></i> No upload to servers</span>
+        <span><i></i> Local browser processing</span>
         <span><i></i> Free to use</span>
       </div>
     </section>
+
+
+    <!-- CONVERTER -->
 
     <section class="workspace" id="converter">
 
       <div class="section-heading">
         <div>
-          <span class="eyebrow">YOUR WORKSPACE</span>
-          <h2>Video Studio</h2>
+          <span class="eyebrow">01 / VIDEO WORKSPACE</span>
+          <h2>Start with a video</h2>
         </div>
 
-        <span class="local-tag">
-          <span class="privacy-dot"></span>
-          Local processing
-        </span>
+        <span class="section-icon">↗</span>
       </div>
 
-      <section class="upload-card" id="dropZone">
+
+      <!-- UPLOAD -->
+
+      <div class="upload-card" id="dropZone">
+
+        <div class="upload-content" id="uploadContent">
+
+          <div class="upload-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M12 16V4"/>
+              <path d="m7 9 5-5 5 5"/>
+              <path d="M4 16v4h16v-4"/>
+            </svg>
+          </div>
+
+          <h3>Drop your video here</h3>
+
+          <p>Or browse your device to select a video</p>
+
+          <button class="primary-button" id="browseButton" type="button">
+            Choose video <span>↗</span>
+          </button>
+
+          <div class="upload-hint">
+            MP4, WebM, MOV and other browser-supported formats
+          </div>
+
+        </div>
+
+
+        <div class="upload-loaded" id="uploadLoaded" hidden>
+
+          <div class="loaded-icon">✓</div>
+
+          <div class="loaded-info">
+            <strong id="fileName">video.mp4</strong>
+            <span id="fileDetails">0 MB</span>
+          </div>
+
+          <button class="secondary-button" id="changeVideoButton" type="button">
+            Change video
+          </button>
+
+        </div>
 
         <input
           type="file"
@@ -94,59 +135,22 @@
           hidden
         >
 
-        <div class="upload-content" id="uploadContent">
-          <div class="upload-icon">
-            <svg viewBox="0 0 24 24" fill="none">
-              <path d="M12 16V4m0 0L7 9m5-5 5 5"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"/>
-              <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"/>
-            </svg>
-          </div>
+      </div>
 
-          <h3>Drop your video here</h3>
 
-          <p>
-            or choose a file from your device
-          </p>
+      <!-- VIDEO EDITOR -->
 
-          <button class="primary-button" id="browseButton" type="button">
-            <span>Choose Video</span>
-            <span>↗</span>
-          </button>
+      <div class="editor-layout" id="editorLayout" hidden>
 
-          <div class="upload-hint">
-            MP4, WebM, MOV and other browser-supported video formats
-          </div>
-        </div>
+        <section class="panel video-panel">
 
-        <div class="upload-loaded" id="uploadLoaded" hidden>
-          <div class="loaded-icon">✓</div>
-          <div class="loaded-info">
-            <strong id="fileName">video.mp4</strong>
-            <span id="fileDetails">Video loaded</span>
-          </div>
-          <button class="text-button" id="changeVideoButton" type="button">
-            Change video
-          </button>
-        </div>
-
-      </section>
-
-      <section class="editor-layout" id="editorLayout" hidden>
-
-        <div class="panel video-panel">
           <div class="panel-heading">
             <div>
               <span class="panel-number">01</span>
-              <h3>Video Preview</h3>
+              <h3>Video preview</h3>
             </div>
-            <span class="small-label">SOURCE</span>
+
+            <span class="small-label">SOURCE VIDEO</span>
           </div>
 
           <div class="video-stage">
@@ -159,37 +163,44 @@
           </div>
 
           <div class="video-meta">
+
             <div>
               <span>Duration</span>
-              <strong id="videoDuration">00:00</strong>
+              <strong id="videoDuration">--:--</strong>
             </div>
 
             <div>
               <span>Resolution</span>
-              <strong id="videoResolution">—</strong>
+              <strong id="videoResolution">--</strong>
             </div>
 
             <div>
               <span>Current time</span>
               <strong id="currentTime">00:00</strong>
             </div>
-          </div>
-        </div>
 
-        <div class="panel trim-panel">
+          </div>
+
+        </section>
+
+
+        <!-- TRIM -->
+
+        <section class="panel trim-panel">
+
           <div class="panel-heading">
             <div>
               <span class="panel-number">02</span>
-              <h3>Trim Video</h3>
+              <h3>Trim video</h3>
             </div>
-            <span class="small-label">OPTIONAL</span>
           </div>
 
           <p class="panel-description">
-            Choose the section you want to convert or extract.
+            Choose the exact section you want to convert or extract.
           </p>
 
           <div class="trim-fields">
+
             <label class="field">
               <span>Start time (seconds)</span>
               <input
@@ -211,121 +222,166 @@
                 value="0"
               >
             </label>
+
           </div>
 
           <div class="trim-actions">
-            <button class="secondary-button" id="previewTrimButton" type="button">
-              Preview section
+
+            <button class="primary-button" id="previewTrimButton" type="button">
+              Preview selection
             </button>
 
             <button class="text-button" id="resetTrimButton" type="button">
               Reset
             </button>
+
           </div>
 
           <div class="trim-note">
             <span>ⓘ</span>
-            GIF conversion is limited to 30 seconds to help prevent
-            excessive browser memory use.
+            GIF duration is limited to 30 seconds to help prevent excessive browser memory use.
           </div>
-        </div>
 
-      </section>
+        </section>
+
+      </div>
+
+
+      <!-- GIF SETTINGS -->
 
       <section class="panel settings-panel" id="gifSettings" hidden>
 
         <div class="panel-heading">
           <div>
             <span class="panel-number">03</span>
-            <h3>GIF Settings</h3>
+            <h3>GIF settings</h3>
           </div>
-          <span class="small-label">CUSTOMIZE</span>
+
+          <span class="small-label">CUSTOMISE OUTPUT</span>
         </div>
 
         <div class="settings-grid">
 
           <label class="field">
             <span>Output width</span>
+
             <select id="gifWidth">
-              <option value="320">320 px — Small</option>
-              <option value="480" selected>480 px — Medium</option>
-              <option value="640">640 px — Large</option>
-              <option value="800">800 px — HD</option>
+              <option value="320">320 px</option>
+              <option value="480" selected>480 px</option>
+              <option value="640">640 px</option>
+              <option value="800">800 px</option>
             </select>
           </label>
 
+
           <label class="field">
-            <span>Frame rate (FPS)</span>
+            <span>Frame rate</span>
+
             <select id="gifFps">
-              <option value="5">5 FPS — Small file</option>
-              <option value="10">10 FPS — Balanced</option>
-              <option value="12" selected>12 FPS — Smooth</option>
-              <option value="15">15 FPS — Smoother</option>
-              <option value="20">20 FPS — High</option>
-              <option value="24">24 FPS — Very smooth</option>
+              <option value="5">5 FPS</option>
+              <option value="10">10 FPS</option>
+              <option value="12" selected>12 FPS</option>
+              <option value="15">15 FPS</option>
+              <option value="20">20 FPS</option>
+              <option value="24">24 FPS</option>
             </select>
           </label>
+
 
           <label class="field">
             <span>Quality</span>
+
             <select id="gifQuality">
               <option value="20">Smaller file</option>
               <option value="10" selected>Balanced</option>
               <option value="5">High quality</option>
-              <option value="2">Very high quality</option>
+              <option value="2">Maximum quality</option>
             </select>
           </label>
 
+
           <label class="field">
-            <span>Looping</span>
+            <span>Playback</span>
+
             <select id="gifLoop">
-              <option value="0" selected>Infinite loop</option>
+              <option value="0">Loop forever</option>
               <option value="1">Play once</option>
             </select>
           </label>
 
         </div>
 
-        <div class="settings-tip">
-          <span class="tip-icon">✦</span>
-          <span>
-            Smaller width and lower FPS generally produce smaller GIF files.
-          </span>
+
+        <div class="estimate-box">
+          <div>
+            <span class="estimate-label">ESTIMATED OUTPUT</span>
+            <strong id="gifEstimate">Upload a video to calculate</strong>
+          </div>
+
+          <span class="estimate-icon">↗</span>
         </div>
 
+
+        <div class="settings-tip">
+          <span class="tip-icon">✳</span>
+          Higher FPS creates smoother motion but usually increases file size.
+        </div>
+
+
         <button class="primary-button create-button" id="generateGif" type="button">
-          <span class="button-icon">✧</span>
-          Create My GIF
+          <span class="button-icon">✳</span>
+          Create GIF
           <span class="button-arrow">→</span>
         </button>
 
+
+        <button class="cancel-button" id="cancelGif" type="button" hidden>
+          Cancel GIF creation
+        </button>
+
+
+        <!-- GIF PROGRESS -->
+
         <div class="progress-area" id="gifProgressArea" hidden>
+
           <div class="progress-info">
-            <span id="gifProgressText">Preparing frames...</span>
+            <span id="gifProgressText">Preparing GIF...</span>
             <strong id="gifProgressPercent">0%</strong>
           </div>
+
           <div class="progress-track">
             <div class="progress-fill" id="gifProgressBar"></div>
           </div>
+
         </div>
 
+
+        <!-- GIF RESULT -->
+
         <div class="gif-result" id="gifResult" hidden>
+
           <div class="result-heading">
+
             <div>
-              <span class="eyebrow">YOUR CREATION</span>
-              <h3>GIF is ready!</h3>
+              <span class="eyebrow">YOUR RESULT</span>
+              <h3>Your GIF is ready.</h3>
             </div>
-            <span class="success-tag">✓ Complete</span>
+
+            <span class="success-tag">✓ COMPLETED</span>
+
           </div>
+
 
           <div class="gif-preview-box">
-            <img id="gifPreview" alt="Your generated GIF preview">
+            <img id="gifPreview" alt="Generated GIF preview">
           </div>
 
+
           <div class="result-meta">
-            <span id="gifFileSize">File size: —</span>
-            <span>GIF format</span>
+            <span id="gifFileSize">File size: --</span>
+            <span id="gifDimensions">Dimensions: --</span>
           </div>
+
 
           <a
             class="primary-button download-button"
@@ -333,101 +389,138 @@
             href="#"
             download="zerolag-animation.gif"
           >
-            Download GIF <span>↓</span>
+            Download GIF ↓
           </a>
+
         </div>
 
       </section>
 
     </section>
 
-    <section class="workspace frame-workspace" id="frames">
+
+
+    <!-- FRAME STUDIO -->
+
+    <section class="workspace" id="frames">
 
       <div class="section-heading">
+
         <div>
-          <span class="eyebrow">FRAME EXTRACTION</span>
-          <h2>Capture Every Moment</h2>
+          <span class="eyebrow">02 / FRAME STUDIO</span>
+          <h2>Extract video frames</h2>
         </div>
-        <span class="section-icon">▧</span>
+
+        <span class="section-icon">▦</span>
+
       </div>
+
 
       <div class="frame-grid">
 
+
+        <!-- SINGLE FRAME -->
+
         <section class="panel frame-card">
+
           <div class="frame-card-icon">▣</div>
 
-          <h3>Capture Current Frame</h3>
+          <h3>Capture current frame</h3>
 
           <p>
-            Save the exact frame currently visible in your video player.
+            Download the exact frame currently displayed in your video player.
           </p>
 
           <label class="field">
             <span>Image format</span>
+
             <select id="imageFormat">
-              <option value="png">PNG — Higher quality</option>
-              <option value="jpg">JPG — Smaller file</option>
+              <option value="png">PNG</option>
+              <option value="jpg">JPG</option>
             </select>
           </label>
 
-          <button class="secondary-button full-button" id="captureFrame" type="button">
-            Capture Frame <span>↓</span>
+          <button class="primary-button full-button" id="captureFrame" type="button">
+            Capture frame →
           </button>
+
         </section>
 
-        <section class="panel frame-card">
-          <div class="frame-card-icon">▦</div>
 
-          <h3>Batch Frame Extractor</h3>
+        <!-- BATCH EXTRACTION -->
+
+        <section class="panel frame-card">
+
+          <div class="frame-card-icon">▤</div>
+
+          <h3>Batch frame extraction</h3>
 
           <p>
-            Extract multiple images from your selected video section.
+            Automatically capture multiple frames at a chosen time interval.
           </p>
 
           <label class="field">
-            <span>Extract one frame every</span>
+            <span>Capture interval</span>
+
             <select id="frameInterval">
-              <option value="0.25">0.25 seconds</option>
-              <option value="0.5">0.5 seconds</option>
-              <option value="1" selected>1 second</option>
-              <option value="2">2 seconds</option>
-              <option value="5">5 seconds</option>
+              <option value="0.25">Every 0.25 seconds</option>
+              <option value="0.5">Every 0.5 seconds</option>
+              <option value="1" selected>Every 1 second</option>
+              <option value="2">Every 2 seconds</option>
+              <option value="5">Every 5 seconds</option>
             </select>
           </label>
 
-          <button class="secondary-button full-button" id="extractFrames" type="button">
-            Extract Frames <span>→</span>
+          <button class="primary-button full-button" id="extractFrames" type="button">
+            Extract frames →
           </button>
+
+          <button class="cancel-button" id="cancelFrames" type="button" hidden>
+            Cancel extraction
+          </button>
+
         </section>
 
       </div>
 
+
+      <!-- FRAME PROGRESS -->
+
       <div class="progress-area frame-progress" id="frameProgressArea" hidden>
+
         <div class="progress-info">
           <span id="frameProgressText">Extracting frames...</span>
           <strong id="frameProgressPercent">0%</strong>
         </div>
+
         <div class="progress-track">
           <div class="progress-fill" id="frameProgressBar"></div>
         </div>
+
       </div>
+
+
+      <!-- EXTRACTED RESULTS -->
 
       <section class="panel extracted-panel" id="extractedPanel" hidden>
 
         <div class="panel-heading">
+
           <div>
             <span class="panel-number">04</span>
-            <h3>Extracted Frames</h3>
+            <h3>Extracted frames</h3>
           </div>
 
           <button class="secondary-button compact-button" id="downloadZip" type="button">
             Download ZIP ↓
           </button>
+
         </div>
 
-        <p class="panel-description" id="frameCount">
-          Your extracted images will appear here.
-        </p>
+        <div class="extracted-summary">
+          <strong id="frameCount">0 frames extracted.</strong>
+          <span>Click an individual frame to download it.</span>
+        </div>
 
         <div class="frame-results" id="frameResults"></div>
 
@@ -435,67 +528,116 @@
 
     </section>
 
+
+
+    <!-- ABOUT -->
+
     <section class="privacy-section" id="about">
-      <div class="privacy-art">⌁</div>
+
+      <div class="privacy-art">◈</div>
 
       <div>
-        <span class="eyebrow">YOUR FILES STAY YOURS</span>
-        <h2>Private by design.</h2>
+        <span class="eyebrow">MADE FOR YOUR WORKFLOW</span>
+
+        <h2>Your videos stay on your device.</h2>
+
         <p>
-          ZeroLag processes your video directly in your browser.
-          Your original video is not uploaded to a ZeroLag server.
+          ZeroLag processes your selected video locally in your browser.
+          Your video is not uploaded to a ZeroLag server. External libraries
+          are loaded from third-party CDNs, so an internet connection is
+          needed to load the application dependencies.
         </p>
       </div>
+
     </section>
 
+
+
+    <!-- FAQ -->
+
     <section class="faq-section">
+
       <span class="eyebrow">GOOD TO KNOW</span>
-      <h2>Frequently Asked Questions</h2>
+      <h2>Frequently asked questions</h2>
+
 
       <details>
-        <summary>Do I need to create an account?</summary>
-        <p>No. You can use ZeroLag without creating an account.</p>
-      </details>
+        <summary>Does ZeroLag upload my videos?</summary>
 
-      <details>
-        <summary>Are my videos uploaded?</summary>
         <p>
-          No. Video processing happens locally in your browser.
-          The external libraries are loaded from their CDN addresses.
+          No. The application uses browser-based video processing.
+          Your selected video is processed locally and is not uploaded
+          to a ZeroLag backend.
         </p>
       </details>
 
+
       <details>
-        <summary>Why can a large GIF take time?</summary>
+        <summary>Why is GIF generation sometimes slow?</summary>
+
         <p>
-          GIF files contain many individual image frames.
-          Larger dimensions and higher FPS require more processing.
+          GIF files can contain many individual frames. Higher resolutions,
+          longer durations and higher frame rates require more processing
+          and memory.
         </p>
       </details>
 
+
       <details>
-        <summary>Which video formats work?</summary>
+        <summary>Why can't I convert a very long video?</summary>
+
         <p>
-          Supported formats depend on your browser. MP4 and WebM
-          are commonly supported.
+          ZeroLag currently limits GIF duration to 30 seconds and frame
+          extraction to 300 frames to reduce excessive browser resource use.
         </p>
       </details>
+
+
+      <details>
+        <summary>Which video formats are supported?</summary>
+
+        <p>
+          Support depends on your browser. MP4 and WebM are commonly
+          supported, while other formats depend on the codecs available
+          on your device.
+        </p>
+      </details>
+
+
+      <details>
+        <summary>Can I use ZeroLag on mobile?</summary>
+
+        <p>
+          Yes. The interface is responsive, but processing large videos
+          may be slower on phones with limited memory.
+        </p>
+      </details>
+
     </section>
 
   </main>
 
+
+
+  <!-- FOOTER -->
+
   <footer class="footer">
-    <a class="brand footer-brand" href="#">
+
+    <a href="#" class="brand footer-brand">
       <span class="brand-icon">Z</span>
       <span>Zero<span class="brand-accent">Lag</span></span>
     </a>
 
-    <p>Made for creators. Built for simplicity.</p>
+    <p>Simple tools. Better moments.</p>
 
     <span class="footer-copy">
-      © <span id="year"></span> ZeroLag
+      © <span id="year"></span> ZeroLag Studio
     </span>
+
   </footer>
+
+
+  <!-- TOAST -->
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
