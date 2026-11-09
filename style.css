@@ -1344,3 +1344,67 @@ button:disabled {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* SEO GUIDE */
+
+.seo-guide {
+  margin-top: 10px;
+}
+
+.seo-guide > .panel-description {
+  max-width: 760px;
+  margin-top: 0;
+  margin-bottom: 25px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.seo-guide .frame-card {
+  min-height: 235px;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.seo-guide .frame-card:hover {
+  transform: translateY(-4px);
+  border-color: #d2d2ca;
+  box-shadow: 0 14px 35px rgba(20, 20, 15, 0.07);
+}
+
+.seo-guide .frame-card p {
+  min-height: auto;
+  margin-bottom: 0;
+  line-height: 1.8;
+}
+
+.seo-guide > .panel {
+  margin-top: 18px;
+}
+
+.seo-guide > .panel h3 {
+  margin-bottom: 9px;
+  font-family: var(--heading);
+  font-size: 19px;
+}
+
+.seo-guide > .panel .panel-description {
+  margin: 0;
+  line-height: 1.8;
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .seo-guide .frame-card {
+    min-height: auto;
+  }
+
+  .seo-guide .frame-card p {
+    line-height: 1.75;
+  }
+
+  .seo-guide > .panel {
+    padding: 19px;
+  }
+}
