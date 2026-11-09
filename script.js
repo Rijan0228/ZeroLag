@@ -903,3 +903,4 @@
 
   console.log("ZeroLag Studio initialized.");
 })();
+const GIF_WORKER = "./gif.worker.js";
