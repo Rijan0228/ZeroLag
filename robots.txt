@@ -1,0 +1,5 @@
+
+User-agent: *
+Allow: /
+
+Sitemap: https://rijan0228.github.io/ZeroLag/sitemap.xml
